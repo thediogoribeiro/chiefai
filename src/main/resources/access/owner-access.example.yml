@@ -1,0 +1,7 @@
+owner:
+  username: ${CHIEFAI_OWNER_USERNAME:}
+  passwordHash: ${CHIEFAI_OWNER_PASSWORD_HASH:}
+  telegram:
+    allowedUserId: ${CHIEFAI_TELEGRAM_OWNER_USER_ID:}
+    allowedChatId: ${CHIEFAI_TELEGRAM_OWNER_CHAT_ID:}
+    declaredPhoneNumber: ${CHIEFAI_OWNER_PHONE_NUMBER:}

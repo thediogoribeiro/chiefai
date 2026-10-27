@@ -1,0 +1,73 @@
+agents:
+  - id: manager
+    description: "Classifica eventos e decide para que especialistas encaminhar."
+    instructions: "agents/manager/instructions.md"
+    knowledgeScopes: []
+    allowedTools:
+      - internal.ask_clarification
+    responseSchema: "schemas/routing-result.json"
+    model: "${OPENAI_ROUTER_MODEL}"
+    maxToolCalls: 1
+    approvalRules:
+      externalWriteRequiresApproval: true
+      destructiveRequiresApproval: true
+  - id: rucodel
+    description: "Trabalho e contexto profissional da Rucodel."
+    instructions: "agents/rucodel/instructions.md"
+    knowledgeScopes:
+      - "knowledge/rucodel/overview.md"
+      - "knowledge/rucodel/architecture.md"
+      - "knowledge/rucodel/decisions.md"
+    allowedTools:
+      - teams.search_messages
+      - gmail.create_draft
+      - calendar.read_events
+      - trello.create_card
+      - telegram.reply
+    responseSchema: "schemas/specialist-result.json"
+    model: "${OPENAI_MODEL}"
+    maxToolCalls: 3
+    approvalRules:
+      externalWriteRequiresApproval: true
+      destructiveRequiresApproval: true
+  - id: health
+    description: "Métricas, rotinas e informação de saúde não diagnóstica."
+    instructions: "agents/health/instructions.md"
+    knowledgeScopes:
+      - "knowledge/health/metrics.md"
+    allowedTools:
+      - oura.read_metrics
+      - health.save_metrics
+      - health.generate_report
+      - health.get_snapshots
+      - health.get_trends
+      - telegram.reply
+    responseSchema: "schemas/specialist-result.json"
+    model: "${OPENAI_MODEL}"
+    maxToolCalls: 3
+    approvalRules:
+      externalWriteRequiresApproval: true
+      destructiveRequiresApproval: true
+  - id: personal
+    description: "Tarefas pessoais, lembretes e assuntos privados."
+    instructions: "agents/personal/instructions.md"
+    knowledgeScopes:
+      - "knowledge/personal/preferences.md"
+    allowedTools:
+      - personal_tasks.create
+      - personal_tasks.complete
+      - tasks.list
+      - calendar.read_events
+      - gmail.read_labeled_expenses
+      - expenses.upsert
+      - expenses.generate_monthly_analysis
+      - finance.get_dashboard
+      - finance.search_expenses
+      - telegram.reply
+      - internal.ask_clarification
+    responseSchema: "schemas/specialist-result.json"
+    model: "${OPENAI_MODEL}"
+    maxToolCalls: 3
+    approvalRules:
+      externalWriteRequiresApproval: true
+      destructiveRequiresApproval: true

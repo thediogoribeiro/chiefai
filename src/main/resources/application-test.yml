@@ -1,0 +1,11 @@
+spring:
+  jpa:
+    hibernate:
+      ddl-auto: validate
+personal-agent:
+  workers:
+    enabled: false
+  api-key:
+    enabled: false
+  openai:
+    enabled: false

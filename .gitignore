@@ -1,0 +1,7 @@
+.env
+target/
+.idea/
+*.iml
+*.log
+owner-access.yml
+src/main/resources/access/owner-access.yml

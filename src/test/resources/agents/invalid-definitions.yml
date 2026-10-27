@@ -1,0 +1,11 @@
+agents:
+  - id: broken
+    description: "Broken agent"
+    instructions: "agents/manager/instructions.md"
+    knowledgeScopes: []
+    allowedTools:
+      - missing.tool
+    responseSchema: "schemas/routing-result.json"
+    model: "fake"
+    maxToolCalls: 1
+    approvalRules: {}

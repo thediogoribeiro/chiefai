@@ -1,0 +1,108 @@
+server:
+  servlet:
+    session:
+      cookie:
+        same-site: lax
+
+spring:
+  application:
+    name: personal-agent-core
+  datasource:
+    url: ${DATABASE_URL:jdbc:postgresql://127.0.0.1:${POSTGRES_PORT:5432}/${POSTGRES_DB:personal_agent}}
+    username: ${POSTGRES_USER:personal_agent}
+    password: ${POSTGRES_PASSWORD:personal_agent_local}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        jdbc.time_zone: UTC
+  flyway:
+    enabled: true
+  jackson:
+    default-property-inclusion: non_null
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+personal-agent:
+  api-key:
+    enabled: ${INTERNAL_API_KEY_ENABLED:false}
+    value: ${INTERNAL_API_KEY:}
+  workers:
+    enabled: true
+    batch-size: 10
+    max-attempts: 5
+  routing:
+    max-routes: 3
+  knowledge:
+    max-chars: 6000
+  access:
+    file: ${CHIEFAI_ACCESS_FILE:}
+  telegram:
+    enabled: ${TELEGRAM_ENABLED:false}
+    bot-token: ${TELEGRAM_BOT_TOKEN:}
+    bot-username: ${TELEGRAM_BOT_USERNAME:}
+    webhook-secret: ${TELEGRAM_WEBHOOK_SECRET:}
+  google:
+    enabled: ${GOOGLE_ENABLED:false}
+    client-id: ${GOOGLE_CLIENT_ID:}
+    client-secret: ${GOOGLE_CLIENT_SECRET:}
+    redirect-uri: ${GOOGLE_REDIRECT_URI:http://localhost:8080/api/v1/integrations/google/callback}
+    token-encryption-key: ${GOOGLE_TOKEN_ENCRYPTION_KEY:local-dev-encryption-key-change-me}
+    expenses-spreadsheet-id: ${GOOGLE_EXPENSES_SPREADSHEET_ID:local-fake-expenses-spreadsheet}
+    expenses-raw-sheet: ${GOOGLE_EXPENSES_RAW_SHEET:Despesas}
+    expenses-review-sheet: ${GOOGLE_EXPENSES_REVIEW_SHEET:Revisao}
+    expenses-dashboard-sheet: ${GOOGLE_EXPENSES_DASHBOARD_SHEET:Dashboard}
+    expenses-monthly-sheet: ${GOOGLE_EXPENSES_MONTHLY_SHEET:Resumo Mensal}
+  whatsapp:
+    enabled: ${WHATSAPP_ENABLED:false}
+    verify-token: ${WHATSAPP_VERIFY_TOKEN:}
+    access-token: ${WHATSAPP_ACCESS_TOKEN:}
+    app-secret: ${WHATSAPP_APP_SECRET:}
+  connectors:
+    trello-enabled: ${TRELLO_ENABLED:false}
+    teams-enabled: ${TEAMS_ENABLED:false}
+    oura-enabled: ${OURA_ENABLED:false}
+  expenses:
+    gmail:
+      input-label: ${GMAIL_EXPENSES_INPUT_LABEL:ChiefAI/Gastos}
+      processed-label: ${GMAIL_EXPENSES_PROCESSED_LABEL:ChiefAI/Processado}
+      review-label: ${GMAIL_EXPENSES_REVIEW_LABEL:ChiefAI/Revisao}
+      polling-interval: ${GMAIL_EXPENSES_POLLING_INTERVAL:PT5M}
+  finance:
+    export:
+      max-rows: ${FINANCE_EXPORT_MAX_ROWS:5000}
+  openai:
+    enabled: ${OPENAI_ENABLED:false}
+    api-key: ${OPENAI_API_KEY:}
+    model: ${OPENAI_MODEL:}
+    router-model: ${OPENAI_ROUTER_MODEL:}
+    transcription-model: ${OPENAI_TRANSCRIPTION_MODEL:}
+    timeout: 20s
+
+logging:
+  pattern:
+    level: "%5p [corr=%X{correlationId:-}]"
+
+---
+spring:
+  config:
+    activate:
+      on-profile: production
+server:
+  servlet:
+    session:
+      cookie:
+        secure: true
+personal-agent:
+  api-key:
+    enabled: true

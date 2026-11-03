@@ -35,6 +35,8 @@ public class IncomingEventEntity {
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(nullable = false, columnDefinition = "jsonb")
     private JsonNode metadata;
+    @Column(name = "authenticated_owner_text", nullable = false)
+    private boolean authenticatedOwnerText;
     private int attempts;
     @Column(name = "next_attempt_at")
     private OffsetDateTime nextAttemptAt;
@@ -72,6 +74,14 @@ public class IncomingEventEntity {
         entity.updatedAt = now;
         return entity;
     }
+
+    public void authenticateOwnerText() {
+        if (source != EventSource.TELEGRAM || !"TEXT".equals(content.path("kind").asText()))
+            throw new SecurityException("Only direct authenticated Telegram text can carry owner provenance");
+        authenticatedOwnerText = true;
+    }
+
+    public boolean isAuthenticatedOwnerText() { return authenticatedOwnerText; }
 
     public void markProcessing() {
         status = EventStatus.PROCESSING;

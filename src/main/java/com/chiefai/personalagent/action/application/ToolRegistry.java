@@ -10,12 +10,12 @@ import com.chiefai.personalagent.expenses.domain.ExpenseOwner;
 import com.chiefai.personalagent.expenses.domain.ExpenseStatus;
 import com.chiefai.personalagent.health.application.HealthSnapshotService;
 import com.chiefai.personalagent.integration.gmail.GmailConnector;
-import com.chiefai.personalagent.notification.application.NotificationOutboxService;
 import com.chiefai.personalagent.shared.Jsonb;
 import com.chiefai.personalagent.shared.PersonalAgentProperties;
 import com.chiefai.personalagent.task.application.PersonalTaskService;
 import com.chiefai.personalagent.task.domain.TaskPriority;
 import com.chiefai.personalagent.task.domain.TaskStatus;
+import com.chiefai.personalagent.system.application.SystemRuntimeService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.springframework.stereotype.Component;
@@ -28,21 +28,26 @@ import java.util.*;
 public class ToolRegistry {
     private final Map<String, RegisteredTool> tools = new LinkedHashMap<>();
 
-    public ToolRegistry(PersonalTaskService taskService, HealthSnapshotService healthService, NotificationOutboxService outboxService,
+    public ToolRegistry(PersonalTaskService taskService, HealthSnapshotService healthService,
                         GmailConnector gmailConnector, ExpenseIngestionService expenseIngestionService,
                         ExpenseAnalysisService expenseAnalysisService, FinanceDashboardService financeDashboardService,
-                        PersonalAgentProperties properties) {
+                        PersonalAgentProperties properties, SystemRuntimeService system) {
+        register("system.get_status", "Consulta estado da aplicação.", RiskLevel.READ_ONLY, false,
+                (args, key) -> ToolExecutionResult.success(Jsonb.value(system.status())));
+        register("system.get_version", "Consulta o commit instalado.", RiskLevel.READ_ONLY, false,
+                (args, key) -> ToolExecutionResult.success(Jsonb.value(system.version())));
+        register("system.get_update_status", "Consulta o último pedido de atualização.", RiskLevel.READ_ONLY, false,
+                (args, key) -> ToolExecutionResult.success(Jsonb.value(system.latest())));
+        register("system.request_update", "Enfileira atualização aprovada; sem argumentos.", RiskLevel.EXTERNAL_WRITE, true,
+                (args, key) -> {
+                    if (args == null || !args.isObject() || !args.isEmpty() || key == null || !key.startsWith("action:"))
+                        return ToolExecutionResult.failure("system.request_update requires an approved action and no arguments");
+                    var request = system.enqueueApproved(UUID.fromString(key.substring(7)));
+                    return request == null ? ToolExecutionResult.failure("Updates are disabled or another update is active")
+                            : ToolExecutionResult.success(Jsonb.value(request));
+                });
         register("internal.ask_clarification", "Cria uma pergunta de clarificação interna.", RiskLevel.READ_ONLY, false,
                 (args, key) -> ToolExecutionResult.success(Jsonb.value(Map.of("question", text(args, "question", "Pode clarificar?")))));
-        register("telegram.reply", "Coloca uma resposta no outbox de notificações.", RiskLevel.INTERNAL_WRITE, true,
-                (args, key) -> {
-                    String text = text(args, "text", text(args, "reply", ""));
-                    if (text.isBlank()) {
-                        return ToolExecutionResult.failure("telegram.reply requires text");
-                    }
-                    outboxService.enqueue("TELEGRAM", text(args, "destination", null), Jsonb.value(Map.of("text", text)), "telegram.reply:" + id(args, text));
-                    return ToolExecutionResult.success(Jsonb.value(Map.of("queued", true)));
-                });
         register("personal_tasks.create", "Cria uma tarefa pessoal interna.", RiskLevel.INTERNAL_WRITE, true,
                 (args, key) -> {
                     String title = text(args, "title", "");
@@ -106,8 +111,7 @@ public class ToolRegistry {
     }
 
     private void register(String name, String description, RiskLevel riskLevel, boolean writes, ToolHandler handler) {
-        ObjectNode schema = Jsonb.object();
-        schema.put("type", "object");
+        ObjectNode schema = argumentSchema(name);
         tools.put(name, new RegisteredTool(new ToolDefinition(name, description, schema, riskLevel, writes), handler));
     }
 
@@ -132,7 +136,75 @@ public class ToolRegistry {
         if (tool == null) {
             return ToolExecutionResult.failure("Unknown tool: " + name);
         }
-        return tool.handler().execute(arguments == null ? Jsonb.object() : arguments, idempotencyKey);
+        JsonNode input = arguments == null ? Jsonb.object() : arguments;
+        if (!validArguments(input, tool.definition().argumentSchema())) return ToolExecutionResult.failure("Invalid tool arguments");
+        return tool.handler().execute(input, idempotencyKey);
+    }
+
+    private static ObjectNode argumentSchema(String name) {
+        Map<String, String> fields = switch (name) {
+            case "internal.ask_clarification" -> Map.of("question", "string");
+            case "personal_tasks.create" -> Map.of("title", "string", "description", "string?", "priority", "string?", "dueDate", "string?");
+            case "personal_tasks.complete" -> Map.of("taskId", "string");
+            case "tasks.list" -> Map.of("status", "string?");
+            case "health.save_metrics" -> Map.of("date", "string?", "source", "string?", "sleepScore", "integer?", "readinessScore", "integer?",
+                    "activityScore", "integer?", "restingHeartRate", "number?", "averageHrv", "number?", "sleepDurationMinutes", "integer?");
+            case "health.get_snapshots", "health.get_trends", "calendar.read_events" -> Map.of("from", "string?", "to", "string?");
+            case "teams.search_messages" -> Map.of("query", "string?");
+            case "gmail.create_draft" -> Map.of("to", "string?", "subject", "string?", "body", "string?");
+            case "trello.create_card" -> Map.of("title", "string", "description", "string?");
+            case "finance.get_dashboard", "finance.search_expenses" -> financeFields(name);
+            default -> Map.of();
+        };
+        ObjectNode schema = Jsonb.object();
+        schema.put("type", "object");
+        schema.put("additionalProperties", false);
+        ObjectNode properties = schema.putObject("properties");
+        var required = schema.putArray("required");
+        fields.forEach((field, type) -> {
+            ObjectNode property = properties.putObject(field);
+            if (type.endsWith("?")) property.putArray("type").add(type.substring(0, type.length() - 1)).add("null");
+            else property.put("type", type);
+            required.add(field);
+        });
+        return schema;
+    }
+
+    private static Map<String, String> financeFields(String tool) {
+        Map<String, String> fields = new LinkedHashMap<>();
+        for (String field : List.of("from", "to", "owner", "category", "subcategory", "supplier", "status", "search")) fields.put(field, "string?");
+        fields.put("minAmount", "number?"); fields.put("maxAmount", "number?");
+        if ("finance.search_expenses".equals(tool)) {
+            fields.put("page", "integer?"); fields.put("size", "integer?"); fields.put("sort", "string?");
+        }
+        return fields;
+    }
+
+    private static boolean validArguments(JsonNode input, JsonNode schema) {
+        if (!input.isObject()) return false;
+        JsonNode properties = schema.path("properties");
+        var names = input.fieldNames();
+        while (names.hasNext()) {
+            String field = names.next();
+            if (!properties.has(field)) return false;
+            JsonNode value = input.get(field);
+            JsonNode types = properties.path(field).path("type");
+            List<String> permitted = types.isArray() ? Jsonb.MAPPER.convertValue(types, new com.fasterxml.jackson.core.type.TypeReference<List<String>>() {}) : List.of(types.asText());
+            boolean valid = permitted.stream().anyMatch(type -> switch (type) {
+                case "null" -> value.isNull();
+                case "string" -> value.isTextual();
+                case "integer" -> value.isIntegralNumber();
+                case "number" -> value.isNumber();
+                default -> false;
+            });
+            if (!valid) return false;
+        }
+        var fields = properties.fields();
+        while (fields.hasNext()) {
+            var field = fields.next();
+            if (field.getValue().path("type").isTextual() && !input.hasNonNull(field.getKey())) return false;
+        }
+        return true;
     }
 
     private static String text(JsonNode args, String field, String defaultValue) {
@@ -170,10 +242,6 @@ public class ToolRegistry {
                 decimal(args, "minAmount"),
                 decimal(args, "maxAmount"),
                 text(args, "search", null));
-    }
-
-    private static String id(JsonNode args, String fallback) {
-        return Integer.toHexString(Objects.hash(args == null ? "" : args.toString(), fallback));
     }
 
     private record RegisteredTool(ToolDefinition definition, ToolHandler handler) {

@@ -62,3 +62,7 @@ Telegram webhook
 ```
 
 `/health`, `/finance`, `/rucodel`, `/work` e `/personal` usam routing determinístico. Texto sem comando pode usar o Manager fake/LLM para uma ou mais rotas.
+
+## Sistema e atualização
+
+O módulo `system` usa o port `SupervisorQueue` com adapter PostgreSQL. Pedidos explícitos OWNER passam pelo Manager/AgentRunner e ProposedAction; os comandos `/system` usam o mesmo router central. A fila só é publicada pela transação de uma ação aprovada. Um processo PowerShell externo, iniciado pelo Task Scheduler, faz staging, validação, paragem do wrapper, troca e readiness. Não depende de uma thread Spring após a paragem. Ver [sistema](system-module.md), [Windows](windows-deployment.md) e [permissões](agent-permissions.md).

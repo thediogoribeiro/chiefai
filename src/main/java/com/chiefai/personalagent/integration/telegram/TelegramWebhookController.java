@@ -83,7 +83,11 @@ public class TelegramWebhookController {
         metadata.put("chatId", chatId);
         metadata.put("telegramUserId", userId);
         metadata.put("replyChannel", "TELEGRAM");
-        return ingestion.accept(new EventDtos.CreateEventRequest(externalId, EventSource.TELEGRAM, EventType.MESSAGE_RECEIVED, occurredAt, content, metadata));
+        var event = new EventDtos.CreateEventRequest(externalId, EventSource.TELEGRAM, EventType.MESSAGE_RECEIVED, occurredAt, content, metadata);
+        boolean directAuthenticatedText = properties.telegram() != null && properties.telegram().enabled()
+                && message.hasNonNull("text") && !message.has("forward_origin") && !message.has("forward_date")
+                && !message.has("forward_from") && !message.has("via_bot");
+        return directAuthenticatedText ? ingestion.acceptAuthenticatedOwnerText(event) : ingestion.accept(event);
     }
 
     private boolean authorized(String userId, String chatId) {
@@ -122,6 +126,8 @@ public class TelegramWebhookController {
                 /finance <pergunta> - finanças pessoais no dashboard
                 /rucodel <pergunta> ou /work <pergunta> - contexto Rucodel
                 /personal <pergunta> - tarefas e assuntos pessoais
+                /system status, /system version, /system updates - estado da aplicação
+                /system update - propõe atualização (aprovação pela API autenticada)
 
                 Também podes escrever em linguagem normal. O Manager decide o especialista certo.
                 """;

@@ -57,4 +57,7 @@ public class ToolExecutionEntity {
         this.createdAt = OffsetDateTime.now();
         this.completedAt = this.createdAt;
     }
+    public ToolExecutionStatus getStatus() { return status; }
+    public JsonNode getResult() { return result; }
+    public String getErrorMessage() { return errorMessage; }
 }

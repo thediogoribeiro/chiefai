@@ -9,3 +9,5 @@
 7. Cobrir autorização, idempotência e erro funcional em testes.
 
 O LLM nunca recebe tokens nem executa integrações diretamente.
+
+As allowlists efetivas intersectam o mapa Java de `ToolPolicyService`, `policies/agent-tools.yml` e a definição do agente. Define um schema de argumentos fechado em `ToolRegistry.argumentSchema`; o gateway usa-o para saídas estruturadas e o executor valida-o novamente. Não acrescentes ferramentas genéricas de terminal, filesystem, Git ou invocação de agentes.

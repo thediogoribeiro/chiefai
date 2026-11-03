@@ -9,3 +9,7 @@
 7. Adicionar testes para routing, allowlist e ações.
 
 O loader falha no arranque se uma ferramenta, schema ou ficheiro referenciado não existir.
+
+As permissões têm de ser declaradas também em `policies/agent-tools.yml` e no mapa de domínios Java de `ToolPolicyService`. O loader rejeita ferramentas que excedam esse mapa. Especialistas não recebem ferramentas para invocar agentes ou `system.*`; ver [permissões](agent-permissions.md). Modelos são configurados em `agents/models.yml`, mantendo os limites de tokens e tool calls.
+
+Todos os novos ficheiros de instruções devem incluir integralmente a secção «Regra obrigatória: credenciais apenas em runtime» de `AGENTS.md`. Não incluir valores reais em Markdown, prompts, conhecimento ou exemplos. Os agentes usam ferramentas autorizadas; apenas os adapters obtêm credenciais em runtime por configuração segura, sem as expor ao modelo.

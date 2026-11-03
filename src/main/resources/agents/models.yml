@@ -1,0 +1,12 @@
+personal-agent:
+  models:
+    # Blank values preserve legacy variables, then use the verified gpt-6-luna default.
+    manager:
+      model: ${OPENAI_MANAGER_MODEL:}
+      max-output-tokens: ${OPENAI_MANAGER_MAX_OUTPUT_TOKENS:2048}
+    specialists:
+      default-model: ${OPENAI_SPECIALIST_MODEL:}
+      max-output-tokens: ${OPENAI_SPECIALIST_MAX_OUTPUT_TOKENS:2048}
+      rucodel: ${OPENAI_RUCODEL_MODEL:}
+      health: ${OPENAI_HEALTH_MODEL:}
+      personal: ${OPENAI_PERSONAL_MODEL:}

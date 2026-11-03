@@ -13,6 +13,7 @@ Este documento resume os módulos que existem atualmente no ChiefAI e o estado p
 | Agentes | Ativo | `GET /api/v1/agents` | Lista agentes configurados e ferramentas permitidas. |
 | Tarefas | Ativo via API | `/api/v1/tasks` | Cria, lista, conclui e cancela tarefas pessoais. |
 | Ações | Ativo via API | `/api/v1/actions` | Aprova ou rejeita ações propostas. |
+| Sistema | Ativo via API/Manager e supervisor Windows | `/api/v1/system/*`, `/system` no Telegram | Estado, commit e atualizações controladas após aprovação. |
 | Definições | Não ativo no frontend | rota reservada `/settings` | Módulo desativado na configuração atual. |
 
 ## Manager
@@ -34,9 +35,15 @@ Routing determinístico existente:
 - `/personal` vai para `personal`;
 - `domainHint` válido tem prioridade.
 
-Ferramenta permitida:
+Ferramentas permitidas:
 
 - `internal.ask_clarification`
+- `system.get_status`
+- `system.get_version`
+- `system.request_update`
+- `system.get_update_status`
+
+Ver [permissões](../agent-permissions.md), [sistema](../system-module.md) e [Windows](../windows-deployment.md). O módulo system é exclusivo do Manager; não é um subagente.
 
 ## Finanças
 
@@ -101,7 +108,8 @@ Ferramentas permitidas:
 - `oura.read_metrics`
 - `health.save_metrics`
 - `health.generate_report`
-- `telegram.reply`
+- `health.get_snapshots`
+- `health.get_trends`
 
 Nota: a análise de saúde é informativa e não constitui diagnóstico médico. O conector Oura existe, mas no MVP a ferramenta devolve erro funcional se a integração real não estiver ativa.
 
@@ -126,7 +134,6 @@ Ferramentas permitidas:
 - `gmail.create_draft`
 - `calendar.read_events`
 - `trello.create_card`
-- `telegram.reply`
 
 Estado prático: Teams, Calendar e Trello estão presentes como ferramentas/adapters fake ou limitados no MVP. Ações externas podem exigir aprovação.
 
@@ -149,12 +156,15 @@ Ferramentas permitidas:
 
 - `personal_tasks.create`
 - `personal_tasks.complete`
+- `tasks.list`
 - `calendar.read_events`
 - `gmail.read_labeled_expenses`
 - `expenses.upsert`
 - `expenses.generate_monthly_analysis`
-- `telegram.reply`
-- `internal.ask_clarification`
+- `finance.get_dashboard`
+- `finance.search_expenses`
+
+As respostas usam a orquestração/outbox, sem ferramenta de envio disponibilizada ao modelo.
 
 ## Tarefas
 

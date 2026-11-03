@@ -1,6 +1,9 @@
 package com.chiefai.personalagent.agent.application;
 
 import com.chiefai.personalagent.action.application.ToolRegistry;
+import com.chiefai.personalagent.action.application.ToolPolicyService;
+import com.chiefai.personalagent.integration.openai.AgentModels;
+import com.chiefai.personalagent.shared.PersonalAgentProperties;
 import com.chiefai.personalagent.agent.domain.AgentDefinition;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
@@ -15,10 +18,16 @@ import java.util.stream.Collectors;
 @Component
 public class AgentDefinitionLoader {
     private final ToolRegistry toolRegistry;
+    private final ToolPolicyService policy;
+    private final AgentModels models;
+    private final PersonalAgentProperties properties;
     private final ObjectMapper yaml = new ObjectMapper(new YAMLFactory());
 
-    public AgentDefinitionLoader(ToolRegistry toolRegistry) {
+    public AgentDefinitionLoader(ToolRegistry toolRegistry, ToolPolicyService policy, AgentModels models, PersonalAgentProperties properties) {
         this.toolRegistry = toolRegistry;
+        this.policy = policy;
+        this.models = models;
+        this.properties = properties;
     }
 
     public Map<String, AgentDefinition> load() {
@@ -33,6 +42,9 @@ public class AgentDefinitionLoader {
             for (AgentDefinition agent : map.values()) {
                 validate(agent);
             }
+            map.replaceAll((id, agent) -> new AgentDefinition(agent.id(), agent.description(), agent.instructions(), agent.knowledgeScopes(),
+                    agent.allowedTools(), agent.responseSchema(), "manager".equals(id) ? models.managerModel(properties.openai())
+                    : models.specialistModel(id, properties.openai()), agent.maxToolCalls(), agent.approvalRules()));
             return Collections.unmodifiableMap(map);
         } catch (IOException e) {
             throw new IllegalStateException("Failed to load agents/definitions.yml: " + e.getMessage(), e);
@@ -68,9 +80,10 @@ public class AgentDefinitionLoader {
             if (!toolRegistry.exists(tool)) {
                 throw new IllegalStateException("Agent " + agent.id() + " references unknown tool: " + tool);
             }
+            policy.assertAllowed(agent.id(), tool, agent.allowedTools());
         }
-        if (agent.maxToolCalls() < 0) {
-            throw new IllegalStateException("Agent " + agent.id() + " maxToolCalls must be >= 0");
+        if (agent.maxToolCalls() < 0 || agent.maxToolCalls() > 10) {
+            throw new IllegalStateException("Agent " + agent.id() + " maxToolCalls must be between 0 and 10");
         }
     }
 

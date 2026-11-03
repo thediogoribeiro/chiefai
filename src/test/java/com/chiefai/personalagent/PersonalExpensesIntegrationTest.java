@@ -30,28 +30,28 @@ import static org.assertj.core.api.Assertions.*;
         "personal-agent.google.expenses-spreadsheet-id=test-expenses-sheet",
         "personal-agent.workers.enabled=false"
 })
+@org.springframework.test.annotation.DirtiesContext(classMode = org.springframework.test.annotation.DirtiesContext.ClassMode.AFTER_CLASS)
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 class PersonalExpensesIntegrationTest {
     static final String RUN_ID = UUID.randomUUID().toString();
 
+    static PostgreSQLContainer<?> postgres;
+
     @DynamicPropertySource
     static void postgresProperties(DynamicPropertyRegistry registry) {
-        try {
-            PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:16-alpine")
-                    .withDatabaseName("personal_agent_expenses_test")
-                    .withUsername("test")
-                    .withPassword("test");
-            postgres.start();
-            registry.add("spring.datasource.url", postgres::getJdbcUrl);
-            registry.add("spring.datasource.username", postgres::getUsername);
-            registry.add("spring.datasource.password", postgres::getPassword);
-        } catch (RuntimeException dockerUnavailable) {
-            registry.add("spring.datasource.url", () -> "jdbc:postgresql://127.0.0.1:55432/personal_agent");
-            registry.add("spring.datasource.username", () -> "personal_agent");
-            registry.add("spring.datasource.password", () -> "personal_agent_local");
-        }
+        postgres = new PostgreSQLContainer<>("postgres:16-alpine")
+                .withDatabaseName("personal_agent_expenses_test")
+                .withUsername("test")
+                .withPassword("test");
+        postgres.start();
+        registry.add("spring.datasource.url", postgres::getJdbcUrl);
+        registry.add("spring.datasource.username", postgres::getUsername);
+        registry.add("spring.datasource.password", postgres::getPassword);
     }
+
+    @org.junit.jupiter.api.AfterAll
+    static void stopTestDatabase() { if (postgres != null) postgres.stop(); }
 
     @Autowired FakeGmailConnector gmail;
     @Autowired ExpenseIngestionService ingestion;

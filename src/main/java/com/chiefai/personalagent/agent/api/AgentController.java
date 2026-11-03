@@ -22,9 +22,9 @@ public class AgentController {
         return catalog.all().stream().map(AgentSummary::from).toList();
     }
 
-    public record AgentSummary(String id, String description, List<String> knowledgeScopes, List<String> allowedTools, int maxToolCalls) {
+    public record AgentSummary(String id, String description, List<String> knowledgeScopes, List<String> allowedTools, int maxToolCalls, String model) {
         static AgentSummary from(AgentDefinition definition) {
-            return new AgentSummary(definition.id(), definition.description(), definition.knowledgeScopes(), definition.allowedTools(), definition.maxToolCalls());
+            return new AgentSummary(definition.id(), definition.description(), definition.knowledgeScopes(), definition.allowedTools(), definition.maxToolCalls(), definition.model());
         }
     }
 }

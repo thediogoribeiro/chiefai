@@ -61,6 +61,8 @@ Pode vir de um reverse proxy, túnel local ou infraestrutura própria. Configura
 | `/rucodel <pergunta>` | Rucodel Agent | `/rucodel Resume os temas pendentes relacionados com a produção.` |
 | `/work <pergunta>` | Rucodel Agent | `/work Que assuntos de produção estão pendentes?` |
 | `/personal <pergunta>` | Personal Agent | `/personal Quais são as minhas tarefas abertas?` |
+| `/system status`, `/system version`, `/system updates` | Manager/sistema | Estado, commit e último pedido de atualização. |
+| `/system update` | Manager/sistema | Propõe atualização; confirmação separada pela API OWNER. |
 
 Texto sem comando vai para o Manager decidir:
 
@@ -73,6 +75,8 @@ Como dormi esta semana e como estão os meus gastos?
 Ferramentas internas de leitura podem ser usadas para responder com dados guardados. Ações externas, como Trello, Gmail, Calendar, Teams ou outras escritas externas, ficam como `ProposedAction` pendente de aprovação.
 
 O webhook nunca executa diretamente ferramentas externas e nunca recebe credenciais.
+
+Para operações de sistema, segue [o guia Windows](windows-deployment.md) e [o módulo system](system-module.md). A aprovação Telegram ainda não existe; usa a sessão OWNER e CSRF da API de ações. Conteúdo externo ou reencaminhado não autoriza atualizações.
 
 ## Limitações
 

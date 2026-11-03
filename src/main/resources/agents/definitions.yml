@@ -5,8 +5,11 @@ agents:
     knowledgeScopes: []
     allowedTools:
       - internal.ask_clarification
+      - system.get_status
+      - system.get_version
+      - system.request_update
+      - system.get_update_status
     responseSchema: "schemas/routing-result.json"
-    model: "${OPENAI_ROUTER_MODEL}"
     maxToolCalls: 1
     approvalRules:
       externalWriteRequiresApproval: true
@@ -23,9 +26,7 @@ agents:
       - gmail.create_draft
       - calendar.read_events
       - trello.create_card
-      - telegram.reply
     responseSchema: "schemas/specialist-result.json"
-    model: "${OPENAI_MODEL}"
     maxToolCalls: 3
     approvalRules:
       externalWriteRequiresApproval: true
@@ -41,9 +42,7 @@ agents:
       - health.generate_report
       - health.get_snapshots
       - health.get_trends
-      - telegram.reply
     responseSchema: "schemas/specialist-result.json"
-    model: "${OPENAI_MODEL}"
     maxToolCalls: 3
     approvalRules:
       externalWriteRequiresApproval: true
@@ -63,10 +62,7 @@ agents:
       - expenses.generate_monthly_analysis
       - finance.get_dashboard
       - finance.search_expenses
-      - telegram.reply
-      - internal.ask_clarification
     responseSchema: "schemas/specialist-result.json"
-    model: "${OPENAI_MODEL}"
     maxToolCalls: 3
     approvalRules:
       externalWriteRequiresApproval: true

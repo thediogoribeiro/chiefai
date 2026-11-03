@@ -34,6 +34,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         "personal-agent.workers.enabled=false",
         "personal-agent.finance.export.max-rows=2"
 })
+@org.springframework.test.annotation.DirtiesContext(classMode = org.springframework.test.annotation.DirtiesContext.ClassMode.AFTER_CLASS)
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 @WithMockUser(roles = "OWNER")
@@ -41,23 +42,22 @@ class FinanceDashboardIntegrationTest {
     static final String RUN_ID = UUID.randomUUID().toString();
     static final YearMonth MONTH = YearMonth.of(2175, 1).plusMonths(Math.floorMod(RUN_ID.hashCode(), 240));
 
+    static PostgreSQLContainer<?> postgres;
+
     @DynamicPropertySource
     static void postgresProperties(DynamicPropertyRegistry registry) {
-        try {
-            PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:16-alpine")
-                    .withDatabaseName("personal_agent_finance_test")
-                    .withUsername("test")
-                    .withPassword("test");
-            postgres.start();
-            registry.add("spring.datasource.url", postgres::getJdbcUrl);
-            registry.add("spring.datasource.username", postgres::getUsername);
-            registry.add("spring.datasource.password", postgres::getPassword);
-        } catch (RuntimeException dockerUnavailable) {
-            registry.add("spring.datasource.url", () -> "jdbc:postgresql://127.0.0.1:55432/personal_agent");
-            registry.add("spring.datasource.username", () -> "personal_agent");
-            registry.add("spring.datasource.password", () -> "personal_agent_local");
-        }
+        postgres = new PostgreSQLContainer<>("postgres:16-alpine")
+                .withDatabaseName("personal_agent_finance_test")
+                .withUsername("test")
+                .withPassword("test");
+        postgres.start();
+        registry.add("spring.datasource.url", postgres::getJdbcUrl);
+        registry.add("spring.datasource.username", postgres::getUsername);
+        registry.add("spring.datasource.password", postgres::getPassword);
     }
+
+    @org.junit.jupiter.api.AfterAll
+    static void stopTestDatabase() { if (postgres != null) postgres.stop(); }
 
     @Autowired MockMvc mvc;
     @Autowired ExpenseIngestionService ingestion;

@@ -46,6 +46,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         "personal-agent.telegram.webhook-secret=test-secret",
         "personal-agent.telegram.bot-token=fake-test-token"
 })
+@org.springframework.test.annotation.DirtiesContext(classMode = org.springframework.test.annotation.DirtiesContext.ClassMode.AFTER_CLASS)
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 class TelegramAndSecurityIntegrationTest {
@@ -54,25 +55,22 @@ class TelegramAndSecurityIntegrationTest {
 
     @DynamicPropertySource
     static void properties(DynamicPropertyRegistry registry) {
-        try {
-            postgres = new PostgreSQLContainer<>("postgres:16-alpine")
-                    .withDatabaseName("personal_agent_telegram_test")
-                    .withUsername("test")
-                    .withPassword("test");
-            postgres.start();
-            registry.add("spring.datasource.url", postgres::getJdbcUrl);
-            registry.add("spring.datasource.username", postgres::getUsername);
-            registry.add("spring.datasource.password", postgres::getPassword);
-        } catch (RuntimeException dockerUnavailable) {
-            registry.add("spring.datasource.url", () -> "jdbc:postgresql://127.0.0.1:55432/personal_agent");
-            registry.add("spring.datasource.username", () -> "personal_agent");
-            registry.add("spring.datasource.password", () -> "personal_agent_local");
-        }
+        postgres = new PostgreSQLContainer<>("postgres:16-alpine")
+                .withDatabaseName("personal_agent_telegram_test")
+                .withUsername("test")
+                .withPassword("test");
+        postgres.start();
+        registry.add("spring.datasource.url", postgres::getJdbcUrl);
+        registry.add("spring.datasource.username", postgres::getUsername);
+        registry.add("spring.datasource.password", postgres::getPassword);
         registry.add("CHIEFAI_OWNER_USERNAME", () -> "owner");
         registry.add("CHIEFAI_OWNER_PASSWORD_HASH", () -> new BCryptPasswordEncoder().encode("correct-password"));
         registry.add("CHIEFAI_TELEGRAM_OWNER_USER_ID", () -> "123");
         registry.add("CHIEFAI_TELEGRAM_OWNER_CHAT_ID", () -> "999");
     }
+
+    @org.junit.jupiter.api.AfterAll
+    static void stopTestDatabase() { if (postgres != null) postgres.stop(); }
 
     @Autowired MockMvc mvc;
     @Autowired IncomingEventJpaRepository events;
@@ -213,6 +211,24 @@ class TelegramAndSecurityIntegrationTest {
                 .filter(action -> event.getId().equals(action.getEventId()))
                 .filter(action -> action.getToolName().equals("trello.create_card"))
                 .findFirst().orElseThrow().getStatus()).isEqualTo(ActionStatus.PENDING_APPROVAL);
+    }
+
+    @Test
+    void onlyDirectAuthenticatedTelegramUpdateCommandProposesOnce() throws Exception {
+        String updateId = uniqueUpdate("system-update");
+        postTelegram(updateId, "/system update");
+        postTelegram(updateId, "/system update");
+        processing.processOnce();
+        assertThat(actions.findAll()).hasSize(1);
+        assertThat(actions.findAll().getFirst().getAgentId()).isEqualTo("manager");
+        assertThat(actions.findAll().getFirst().getStatus()).isEqualTo(ActionStatus.PENDING_APPROVAL);
+        String forwarded = update(uniqueUpdate("forwarded"), "123", "999", "/system update").replace("\"text\":", "\"forward_date\": 123, \"text\":");
+        mvc.perform(post("/api/v1/integrations/telegram/webhook")
+                        .header("X-Telegram-Bot-Api-Secret-Token", "test-secret")
+                        .contentType(MediaType.APPLICATION_JSON).content(forwarded))
+                .andExpect(status().isAccepted());
+        processing.processOnce();
+        assertThat(actions.findAll()).hasSize(1);
     }
 
     @Test

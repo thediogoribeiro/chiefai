@@ -10,6 +10,7 @@ O PostgreSQL é a fonte de verdade dos dados financeiros. Google Sheets/Excel j�
 - `orchestration`: routing determinístico ou manager LLM.
 - `agent`: definições, instruções, knowledge retrieval e runner.
 - `action`: ferramentas, allowlists, aprovação e execução.
+- `system`: estado, versão, pedidos aprovados e fila para supervisor Windows externo.
 - `expenses`: ingestão Gmail, extração, revisão, aprovação e APIs financeiras.
 - `dashboard`: módulos do dashboard e frontend servido pelo backend.
 - `health`: snapshots e tendências objetivas de saúde.
@@ -29,7 +30,7 @@ src/main/resources/static/
 
 - Java 21 ou superior.
 - Docker com Docker Compose.
-- Bash em macOS ou Linux.
+- Bash em macOS ou Linux; para Windows, PowerShell 7.4+, JDK 21, Git e PostgreSQL (ver guia).
 
 ## Configuração local
 
@@ -71,7 +72,7 @@ curl http://localhost:8080/actuator/health
 ./mvnw verify
 ```
 
-Os testes usam PostgreSQL real, sem H2 e sem chamadas reais a OpenAI, Gmail, Google Sheets, Telegram, WhatsApp, Teams, Calendar, Trello ou Oura.
+Os testes requerem Docker/Testcontainers e usam PostgreSQL isolado, sem fallback para a base da aplicação e sem H2 e sem chamadas reais a OpenAI, Gmail, Google Sheets, Telegram, WhatsApp, Teams, Calendar, Trello ou Oura.
 
 ## Endpoints principais
 
@@ -119,6 +120,14 @@ curl -OJ 'http://localhost:8080/api/v1/finance/expenses/export?from=2026-09-01&t
 ## OpenAI
 
 Por defeito `OPENAI_ENABLED=false`, usando fake LLM determinístico. A API não herda automaticamente conversas, memória, projetos ou autenticação do ChatGPT.
+
+Configura modelos por agente em `src/main/resources/agents/models.yml` e pelas variáveis `OPENAI_MANAGER_MODEL`, `OPENAI_SPECIALIST_MODEL` e overrides de cada especialista. O default configurável é `gpt-6-luna`; API e ChatGPT têm faturação separada. Ver [configuração OpenAI](docs/openai-configuration.md).
+
+## Windows e operações de sistema
+
+Segue [instalação Windows](docs/windows-deployment.md) para configurar duas tarefas de arranque, contas dedicadas, PostgreSQL, logs e supervisor independente. O supervisor compila/testa em staging e continua após parar o backend. Só usa o remoto/URL/branch definidos pelo administrador.
+
+O Manager aceita `/system status`, `/system version`, `/system updates` e `/system update`. Atualizar exige pedido direto autenticado e aprovação separada pela API de ações. Os especialistas não têm acesso ao sistema nem existem ferramentas genéricas para modificar código. Ver [módulo de sistema](docs/system-module.md) e [permissões dos agentes](docs/agent-permissions.md).
 
 ## Acesso
 

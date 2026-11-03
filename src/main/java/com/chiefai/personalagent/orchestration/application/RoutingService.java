@@ -7,6 +7,7 @@ import com.chiefai.personalagent.ingestion.infrastructure.IncomingEventEntity;
 import com.chiefai.personalagent.integration.openai.LanguageModelGateway;
 import com.chiefai.personalagent.integration.openai.RouteResult;
 import com.chiefai.personalagent.shared.Jsonb;
+import com.chiefai.personalagent.system.domain.ManagerSystemCommand;
 import com.chiefai.personalagent.shared.PersonalAgentProperties;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Service;
@@ -31,6 +32,9 @@ public class RoutingService {
 
     public Decision route(IncomingEventEntity event) {
         String text = extractor.extract(event);
+        if (ManagerSystemCommand.parse(text).isPresent()) {
+            return new Decision("DETERMINISTIC", single("manager", text, "Structured system command"));
+        }
         Optional<RouteResult> deterministic = deterministic(event, text);
         if (deterministic.isPresent()) {
             return new Decision("DETERMINISTIC", sanitize(deterministic.get(), text));

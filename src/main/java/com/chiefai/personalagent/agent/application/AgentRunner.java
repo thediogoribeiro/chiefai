@@ -6,12 +6,15 @@ import com.chiefai.personalagent.action.application.ToolRegistry;
 import com.chiefai.personalagent.agent.domain.AgentDefinition;
 import com.chiefai.personalagent.ingestion.infrastructure.IncomingEventEntity;
 import com.chiefai.personalagent.integration.openai.LanguageModelGateway;
+import com.chiefai.personalagent.integration.openai.AgentModels;
+import com.chiefai.personalagent.shared.PersonalAgentProperties;
 import com.chiefai.personalagent.integration.openai.RouteResult;
 import com.chiefai.personalagent.integration.openai.SpecialistResult;
 import com.chiefai.personalagent.notification.application.NotificationOutboxService;
 import com.chiefai.personalagent.orchestration.infrastructure.AgentExecutionEntity;
 import com.chiefai.personalagent.orchestration.infrastructure.AgentExecutionJpaRepository;
 import com.chiefai.personalagent.shared.Jsonb;
+import com.chiefai.personalagent.system.domain.ManagerSystemCommand;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -30,9 +33,11 @@ public class AgentRunner {
     private final AgentExecutionJpaRepository executions;
     private final ActionService actions;
     private final NotificationOutboxService outbox;
+    private final AgentModels models;
+    private final PersonalAgentProperties properties;
 
     public AgentRunner(AgentCatalog catalog, KnowledgeRetriever knowledgeRetriever, LanguageModelGateway gateway, ToolRegistry toolRegistry,
-                       ToolPolicyService policy, AgentExecutionJpaRepository executions, ActionService actions, NotificationOutboxService outbox) {
+                       ToolPolicyService policy, AgentExecutionJpaRepository executions, ActionService actions, NotificationOutboxService outbox, AgentModels models, PersonalAgentProperties properties) {
         this.catalog = catalog;
         this.knowledgeRetriever = knowledgeRetriever;
         this.gateway = gateway;
@@ -41,10 +46,14 @@ public class AgentRunner {
         this.executions = executions;
         this.actions = actions;
         this.outbox = outbox;
+        this.models = models;
+        this.properties = properties;
     }
 
     @Transactional
     public SpecialistResult run(IncomingEventEntity event, RouteResult.Route route) {
+        if (route == null) throw new SecurityException("A central route is required");
+        if ("manager".equals(route.agentId())) return runSystemCommand(event, route);
         AgentDefinition agent = catalog.get(route.agentId());
         AgentExecutionEntity execution = executions.save(AgentExecutionEntity.running(event.getId(), agent.id(), route.segment(), configuredModel(agent)));
         try {
@@ -71,6 +80,32 @@ public class AgentRunner {
         }
     }
 
+    private SpecialistResult runSystemCommand(IncomingEventEntity event, RouteResult.Route route) {
+        ManagerSystemCommand command = ManagerSystemCommand.parse(route.segment())
+                .orElseThrow(() -> new SecurityException("Manager self-invocation is not allowed"));
+        if (command != ManagerSystemCommand.parse(event.getContent().path("text").asText()).orElse(null))
+            throw new SecurityException("System commands must match the original message");
+        var manager = catalog.get("manager");
+        policy.assertAllowed("manager", command.tool(), manager.allowedTools());
+        var execution = executions.save(AgentExecutionEntity.running(event.getId(), "manager", route.segment(), "deterministic-java"));
+        String reply;
+        if (command == ManagerSystemCommand.UPDATE) {
+            if (!event.isAuthenticatedOwnerText()) {
+                reply = "Atualização recusada: envia /system update numa mensagem direta autenticada do proprietário ou usa a API com sessão OWNER.";
+            } else {
+                var action = actions.proposeOrAutoExecute(event.getId(), execution.getId(), "manager", command.tool(), Jsonb.object(),
+                        "Pedido explícito de atualização do proprietário", true);
+                reply = "Atualização proposta: " + action.id() + ". Aprova-a em POST /api/v1/actions/" + action.id() + "/approve com a sessão OWNER.";
+            }
+        } else {
+            var result = actions.executeReadOnly(event.getId(), execution.getId(), "manager", command.tool());
+            reply = result.success() ? String.valueOf(result.result()) : result.errorMessage();
+        }
+        var result = new SpecialistResult("Operação de sistema", java.util.List.of(), java.util.List.of(), reply, 1, java.util.List.of());
+        execution.complete(Jsonb.value(result), Jsonb.object());
+        return result;
+    }
+
     private String read(String path) {
         try {
             return new ClassPathResource(path).getContentAsString(StandardCharsets.UTF_8);
@@ -80,6 +115,6 @@ public class AgentRunner {
     }
 
     private String configuredModel(AgentDefinition agent) {
-        return agent.model() == null || agent.model().startsWith("${") ? "fake-local" : agent.model();
+        return properties.openai() == null || !properties.openai().enabled() ? "fake-local" : models.specialistModel(agent.id(), properties.openai());
     }
 }

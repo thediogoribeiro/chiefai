@@ -22,15 +22,26 @@ public class IngestionService {
 
     @Transactional
     public EventDtos.EventResponse accept(EventDtos.CreateEventRequest request) {
-        return events.findBySourceAndExternalId(request.source(), request.externalId())
-                .map(existing -> toResponse(existing, true))
-                .orElseGet(() -> create(request));
+        return acceptWithProvenance(request, false);
     }
 
-    private EventDtos.EventResponse create(EventDtos.CreateEventRequest request) {
+    /** Only connectors that have verified both channel and owner may use this entry point. */
+    @Transactional
+    public EventDtos.EventResponse acceptAuthenticatedOwnerText(EventDtos.CreateEventRequest request) {
+        return acceptWithProvenance(request, true);
+    }
+
+    private EventDtos.EventResponse acceptWithProvenance(EventDtos.CreateEventRequest request, boolean ownerText) {
+        return events.findBySourceAndExternalId(request.source(), request.externalId())
+                .map(existing -> toResponse(existing, true))
+                .orElseGet(() -> create(request, ownerText));
+    }
+
+    private EventDtos.EventResponse create(EventDtos.CreateEventRequest request, boolean ownerText) {
         try {
             IncomingEventEntity entity = IncomingEventEntity.create(request.externalId(), request.source(), request.type(), request.occurredAt(),
                     request.content(), request.metadata() == null ? Jsonb.object() : request.metadata());
+            if (ownerText) entity.authenticateOwnerText();
             return toResponse(events.saveAndFlush(entity), false);
         } catch (DataIntegrityViolationException race) {
             IncomingEventEntity existing = events.findBySourceAndExternalId(request.source(), request.externalId()).orElseThrow();

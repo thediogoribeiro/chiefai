@@ -5,6 +5,8 @@ server:
         same-site: lax
 
 spring:
+  config:
+    import: classpath:agents/models.yml
   application:
     name: personal-agent-core
   datasource:
@@ -81,13 +83,16 @@ personal-agent:
   finance:
     export:
       max-rows: ${FINANCE_EXPORT_MAX_ROWS:5000}
+  system:
+    updates-enabled: ${CHIEFAI_SYSTEM_UPDATES_ENABLED:false}
+    version-file: ${CHIEFAI_SYSTEM_VERSION_FILE:}
   openai:
     enabled: ${OPENAI_ENABLED:false}
     api-key: ${OPENAI_API_KEY:}
     model: ${OPENAI_MODEL:}
     router-model: ${OPENAI_ROUTER_MODEL:}
     transcription-model: ${OPENAI_TRANSCRIPTION_MODEL:}
-    timeout: 20s
+    timeout: ${OPENAI_TIMEOUT:30s}
 
 logging:
   pattern:

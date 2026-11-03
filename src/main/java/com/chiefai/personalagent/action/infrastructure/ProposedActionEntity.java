@@ -143,4 +143,5 @@ public class ProposedActionEntity {
     public String getErrorMessage() { return errorMessage; }
     public OffsetDateTime getCreatedAt() { return createdAt; }
     public OffsetDateTime getUpdatedAt() { return updatedAt; }
+    public OffsetDateTime getApprovedAt() { return approvedAt; }
 }

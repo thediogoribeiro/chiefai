@@ -1,13 +1,16 @@
 manager:
   allowed-tools:
     - internal.ask_clarification
+    - system.get_status
+    - system.get_version
+    - system.request_update
+    - system.get_update_status
 rucodel:
   allowed-tools:
     - teams.search_messages
     - gmail.create_draft
     - calendar.read_events
     - trello.create_card
-    - telegram.reply
 health:
   allowed-tools:
     - oura.read_metrics
@@ -15,7 +18,6 @@ health:
     - health.generate_report
     - health.get_snapshots
     - health.get_trends
-    - telegram.reply
 personal:
   allowed-tools:
     - personal_tasks.create
@@ -27,5 +29,3 @@ personal:
     - expenses.generate_monthly_analysis
     - finance.get_dashboard
     - finance.search_expenses
-    - telegram.reply
-    - internal.ask_clarification
